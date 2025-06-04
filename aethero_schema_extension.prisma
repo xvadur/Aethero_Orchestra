@@ -1,0 +1,290 @@
+// AETH-SCHEMA-001 :: AetheroOS Database Schema Extension
+// Minister: Archivus (Memory and database operations)
+// Purpose: Extend Superagent Prisma schema with AetheroOS ministerial tables
+
+/*
+AetheroOS Database Schema Extension
+
+This file contains database schema extensions for AetheroOS ministerial cabinet
+operations. These tables should be added to the main Superagent Prisma schema
+to enable full integration.
+
+Constitutional Compliance: All tables include constitutional audit fields
+for transparency and accountability under AETH-CONST-2025-001.
+*/
+
+// AetheroOS Ministerial Sessions
+model AetheroSession {
+  id                    String   @id @default(cuid())
+  sessionId            String   @unique
+  userId               String?
+  userAgent            String?
+  ipAddress            String?
+  
+  // Ministerial routing
+  primaryMinister      AetheroMinister
+  involvedMinisters    AetheroMinister[]
+  
+  // ASL Processing
+  aslInput            String?
+  aslParsed           Json?
+  aslValid            Boolean @default(false)
+  
+  // Session state
+  status              AetheroSessionStatus @default(ACTIVE)
+  lastActivity        DateTime @default(now())
+  
+  // Constitutional compliance
+  constitutionalHash  String
+  auditTrail          AetheroAuditRecord[]
+  
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  endedAt             DateTime?
+  
+  // Relations
+  memoryRecords       AetheroMemoryRecord[]
+  cognitiveEvents     AetheroCognitiveEvent[]
+  
+  @@map("aethero_sessions")
+}
+
+// AetheroOS Memory Records
+model AetheroMemoryRecord {
+  id                  String   @id @default(cuid())
+  recordId           String   @unique
+  
+  // Content
+  content            String
+  contentHash        String
+  embeddings         Float[]?
+  
+  // Classification
+  memoryType         AetheroMemoryType
+  minister           AetheroMinister
+  category           String?
+  tags               String[]
+  
+  // Metadata
+  metadata           Json @default("{}")
+  importance         Int @default(5) // 1-10 scale
+  
+  // Relations
+  sessionId          String?
+  session            AetheroSession? @relation(fields: [sessionId], references: [id])
+  
+  // Constitutional compliance
+  constitutionalHash String
+  complianceChecked  Boolean @default(false)
+  
+  // Timestamps
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  expiresAt          DateTime?
+  
+  @@map("aethero_memory_records")
+  @@index([minister, memoryType])
+  @@index([contentHash])
+}
+
+// AetheroOS Cognitive Events
+model AetheroCognitiveEvent {
+  id                 String   @id @default(cuid())
+  eventId           String   @unique
+  
+  // Event details
+  eventType         AetheroCognitiveEventType
+  minister          AetheroMinister
+  description       String
+  
+  // Processing data
+  inputData         Json?
+  outputData        Json?
+  processingTime    Float
+  success           Boolean
+  errorMessage      String?
+  
+  // Context
+  sessionId         String?
+  session           AetheroSession? @relation(fields: [sessionId], references: [id])
+  parentEventId     String?
+  childEvents       AetheroCognitiveEvent[] @relation("CognitiveEventHierarchy")
+  parentEvent       AetheroCognitiveEvent? @relation("CognitiveEventHierarchy", fields: [parentEventId], references: [id])
+  
+  // Constitutional compliance
+  constitutionalHash String
+  auditRequired     Boolean @default(false)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  
+  @@map("aethero_cognitive_events")
+  @@index([minister, eventType])
+  @@index([sessionId])
+}
+
+// AetheroOS Constitutional Audit Records
+model AetheroAuditRecord {
+  id                String   @id @default(cuid())
+  auditId          String   @unique
+  
+  // Audit details
+  auditType        AetheroAuditType
+  minister         AetheroMinister?
+  action           String
+  description      String
+  
+  // Data integrity
+  dataHash         String
+  digitalSignature String
+  timestamp        DateTime @default(now())
+  
+  // Compliance status
+  complianceStatus AetheroComplianceStatus
+  violationLevel   AetheroViolationLevel?
+  remedialAction   String?
+  
+  // Relations
+  sessionId        String?
+  session          AetheroSession? @relation(fields: [sessionId], references: [id])
+  
+  // Immutable audit trail
+  previousAuditId  String?
+  nextAuditId      String?
+  
+  @@map("aethero_audit_records")
+  @@index([minister, auditType])
+  @@index([complianceStatus])
+  @@index([timestamp])
+}
+
+// AetheroOS Ministerial Configuration
+model AetheroMinisterConfig {
+  id               String   @id @default(cuid())
+  minister         AetheroMinister @unique
+  
+  // Configuration
+  isActive         Boolean @default(true)
+  capabilities     String[]
+  restrictions     String[]
+  
+  // Performance settings
+  maxConcurrency   Int @default(10)
+  timeoutSeconds   Int @default(30)
+  retryAttempts    Int @default(3)
+  
+  // Integration settings
+  bridgeConfig     Json @default("{}")
+  endpointConfig   Json @default("{}")
+  
+  // Constitutional compliance
+  constitutionalVersion String @default("AETH-CONST-2025-001")
+  lastComplianceCheck   DateTime @default(now())
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@map("aethero_minister_configs")
+}
+
+// AetheroOS System Metrics
+model AetheroSystemMetric {
+  id              String   @id @default(cuid())
+  
+  // Metric details
+  metricName      String
+  metricValue     Float
+  metricUnit      String?
+  minister        AetheroMinister?
+  
+  // Context
+  category        String
+  tags            String[]
+  metadata        Json @default("{}")
+  
+  // Aggregation
+  aggregationType AetheroMetricAggregation @default(POINT)
+  timeWindow      String?
+  
+  // Timestamps
+  timestamp       DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  @@map("aethero_system_metrics")
+  @@index([metricName, timestamp])
+  @@index([minister, category])
+}
+
+// ENUMS for AetheroOS Types
+
+enum AetheroMinister {
+  PRIMUS      // Strategic logic and parsing
+  LUCIUS      // Execution and backend
+  ARCHIVUS    // Memory and constitutional audit
+  FRONTINUS   // Interface and visualization
+}
+
+enum AetheroSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ERROR
+  TERMINATED
+}
+
+enum AetheroMemoryType {
+  STRUCTURED      // Database records
+  UNSTRUCTURED    // Vector embeddings
+  CONSTITUTIONAL  // Audit records
+  MINISTERIAL     // Inter-minister communication
+  SESSION         // User session data
+  SYSTEM          // System state
+}
+
+enum AetheroCognitiveEventType {
+  ASL_PARSING
+  STRATEGIC_ANALYSIS
+  TASK_EXECUTION
+  MEMORY_RETRIEVAL
+  MEMORY_STORAGE
+  INTERFACE_UPDATE
+  BRIDGE_COMMUNICATION
+  ERROR_HANDLING
+  CONSTITUTIONAL_CHECK
+}
+
+enum AetheroAuditType {
+  SESSION_START
+  SESSION_END
+  MEMORY_ACCESS
+  MINISTER_COMMUNICATION
+  CONSTITUTIONAL_VIOLATION
+  SYSTEM_CHANGE
+  DATA_MODIFICATION
+  BRIDGE_OPERATION
+}
+
+enum AetheroComplianceStatus {
+  COMPLIANT
+  NON_COMPLIANT
+  UNDER_REVIEW
+  REMEDIATED
+}
+
+enum AetheroViolationLevel {
+  MINOR
+  MODERATE
+  MAJOR
+  CRITICAL
+}
+
+enum AetheroMetricAggregation {
+  POINT       // Single point value
+  SUM         // Aggregated sum
+  AVERAGE     // Aggregated average
+  MAX         // Maximum value
+  MIN         // Minimum value
+  COUNT       // Count of events
+}
